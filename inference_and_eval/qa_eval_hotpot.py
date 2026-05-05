@@ -42,6 +42,37 @@ def normalize(input_string):
     return input_string.strip()
 
 
+def exact_match_score(prediction, ground_truth):
+    return float(normalize(prediction) == normalize(ground_truth))
+
+
+def f1_score(prediction, ground_truth):
+    pred_tokens = normalize(prediction).split()
+    gold_tokens = normalize(ground_truth).split()
+
+    if not pred_tokens and not gold_tokens:
+        return 1.0
+    if not pred_tokens or not gold_tokens:
+        return 0.0
+
+    common = {}
+    for token in pred_tokens:
+        common[token] = common.get(token, 0) + 1
+
+    num_same = 0
+    for token in gold_tokens:
+        if common.get(token, 0) > 0:
+            num_same += 1
+            common[token] -= 1
+
+    if num_same == 0:
+        return 0.0
+
+    precision = num_same / len(pred_tokens)
+    recall = num_same / len(gold_tokens)
+    return 2 * precision * recall / (precision + recall)
+
+
 def get_mongo_client(mongo_uri):
     client = MongoClient(mongo_uri)
     return client
@@ -53,6 +84,7 @@ def get_dataset(dataset_path):
     return ds
 
 
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -62,7 +94,7 @@ def get_args():
     )
     parser.add_argument("--ontology_db_name", type=str, default="wikidata_ontology")
     parser.add_argument("--triplets_db_name", type=str, default="triplets_db")
-    parser.add_argument("--model_name", type=str, default="gpt-4o-mini")
+    parser.add_argument("--model_name", type=str, default="openai/gpt-oss-20b")
     parser.add_argument("--dataset_path", type=str, default="datasets/hotpotqa200.json")
     parser.add_argument(
         "--structured_inference",
@@ -117,13 +149,15 @@ if __name__ == "__main__":
     triplets_db = mongo_client.get_database(args.triplets_db_name)
     ontology_db = mongo_client.get_database(args.ontology_db_name)
 
-    api_key = os.getenv("OPENROUTER_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     proxy_url = os.getenv("PROXY_URL")
 
     model_name = args.model_name
     dataset_path = args.dataset_path
     use_qualifiers = args.use_qualifiers
     use_filtered_triplets = args.use_filtered_triplets
+
+    os.makedirs("qa_logs", exist_ok=True)
 
     logger.info(f"Use qualifier: {args.use_qualifiers}")
     logger.info(f"Use filtered triplets: {args.use_filtered_triplets}")
@@ -202,7 +236,7 @@ if __name__ == "__main__":
             try:
                 question = id2sample[sample_id]["question"]
                 identified_entities = (
-                    inference_with_db.identify_relevant_entities_from_question(
+                    inference_with_db.identify_relevant_entities_from_question_with_llm(
                         question=question, sample_id=sample_id
                     )
                 )
@@ -213,7 +247,7 @@ if __name__ == "__main__":
                     )
                 supporting_triplets, ans = inference_with_db.answer_question_with_llm(
                     question=question,
-                    relevant_entities=identified_entities,
+                    linked_entities=identified_entities,
                     sample_id=sample_id,
                     use_qualifiers=use_qualifiers,
                     use_filtered_triplets=use_filtered_triplets,
@@ -240,5 +274,41 @@ if __name__ == "__main__":
                 ) as f:
                     f.write({"sample_id": sample_id, "answer": ans})
             except Exception as e:
-                logger.error(f"Error for sample_id={sample_id}, question={question}")
+                logger.error(
+                    f"Error for sample_id={sample_id}, question={question}: {e}"
+                )
                 continue
+
+    evaluated_sample_ids = [sample_id for sample_id in unique_sample_ids if sample_id in sample_id2ans]
+    if evaluated_sample_ids:
+        em = sum(
+            exact_match_score(sample_id2ans[sample_id], id2sample[sample_id]["answer"])
+            for sample_id in evaluated_sample_ids
+        ) / len(evaluated_sample_ids)
+        f1 = sum(
+            f1_score(sample_id2ans[sample_id], id2sample[sample_id]["answer"])
+            for sample_id in evaluated_sample_ids
+        ) / len(evaluated_sample_ids)
+        print(
+            json.dumps(
+                {
+                    "evaluated_samples": len(evaluated_sample_ids),
+                    "requested_samples": len(unique_sample_ids),
+                    "em": round(em, 4),
+                    "f1": round(f1, 4),
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(
+            json.dumps(
+                {
+                    "evaluated_samples": 0,
+                    "requested_samples": len(unique_sample_ids),
+                    "em": 0.0,
+                    "f1": 0.0,
+                },
+                indent=2,
+            )
+        )
