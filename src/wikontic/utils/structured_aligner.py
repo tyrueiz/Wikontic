@@ -28,7 +28,7 @@ class EntityAlias(BaseModel):
 
 
 class Aligner:
-    def __init__(self, ontology_db, triplets_db, device="cuda"):
+    def __init__(self, ontology_db, triplets_db, device=None):
         self.ontology_db = ontology_db
         self.triplets_db = triplets_db
 
@@ -47,6 +47,8 @@ class Aligner:
         self.initial_triplets_collection_name = "initial_triplets"
         self.entities_vector_index_name = "entity_aliases"
 
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = torch.device(device)
         # self.tokenizer = AutoTokenizer.from_pretrained(
         #     "facebook/contriever", token=os.getenv("HF_KEY")
@@ -68,7 +70,7 @@ class Aligner:
         model_path = model_name
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
-        self.model = AutoModel.from_pretrained(model_path, use_safetensors=True).to(
+        self.model = AutoModel.from_pretrained(model_path).to(
             self.device
         )
         # self.model = AutoModel.from_pretrained(model_path).to(self.device)

@@ -36,7 +36,7 @@ model_name = "facebook/contriever"
 model_path = model_name
 
 tokenizer = AutoTokenizer.from_pretrained(model_path)
-model = AutoModel.from_pretrained(model_path, use_safetensors=True).to(device)
+model = AutoModel.from_pretrained(model_path).to(device)
 
 class EntityType(BaseModel):
     _id: int
@@ -80,7 +80,7 @@ def get_embedding(text):
 
     try:
         inputs = tokenizer([text], padding=True, truncation=True, return_tensors="pt")
-        outputs = model(**inputs.to("cuda"))
+        outputs = model(**inputs.to(device))
         embeddings = mean_pooling(outputs[0], inputs["attention_mask"])
         return embeddings.detach().cpu().tolist()[0]
 
