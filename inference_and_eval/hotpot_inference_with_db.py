@@ -69,7 +69,7 @@ if __name__ == "__main__":
     dataset_path = args.dataset_path
     num_samples = args.num_samples
 
-    api_key = os.getenv("OPENROUTER_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     proxy_url = os.getenv("PROXY_URL")
 
     ds = get_dataset(dataset_path)

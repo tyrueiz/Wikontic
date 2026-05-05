@@ -69,7 +69,7 @@ if __name__ == "__main__":
     model_name = args.model_name
     num_samples = args.num_samples
 
-    api_key = os.getenv("OPENROUTER_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     proxy_url = os.getenv("PROXY_URL")
 
     ds = get_dataset()

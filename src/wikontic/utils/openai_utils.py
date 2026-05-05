@@ -28,7 +28,7 @@ MAX_ATTEMPTS = 1
 
 
 class LLMTripletExtractor:
-    """A class for extracting and processing knowledge graph triplets using OpenAI's LLMs."""
+    """A class for extracting and processing knowledge graph triplets using OpenAI-compatible LLMs."""
 
     MODEL_PRICES = {
         "gpt-4o": {"input": 2.5, "output": 10},
@@ -37,8 +37,10 @@ class LLMTripletExtractor:
         "gpt-4.1": {"input": 2.0, "output": 8.0},
         "Meta-llama/Llama-3.3-70B-Instruct": {"input": 0.04, "output": 0.12},
         "qwen/qwen3-32b": {"input": 0.05, "output": 0.2},
-        "Openai/Gpt-oss-120b": {"input": 0.05, "output": 0.2},
         "Qwen/Qwen3-32B": {"input": 0.05, "output": 0.2},
+        "openai/gpt-oss-20b": {"input": 0.05, "output": 0.2},
+        "Openai/Gpt-oss-20b": {"input": 0.05, "output": 0.2},
+        "Openai/Gpt-oss-120b": {"input": 0.05, "output": 0.2},
     }
 
     def __init__(
@@ -46,10 +48,10 @@ class LLMTripletExtractor:
         api_key: str,
         prompt_folder_path: str = str(Path(__file__).parent / "prompts"),
         system_prompt_paths: Optional[Dict[str, str]] = None,
-        model: str = "gpt-4o",
+        model: str = "openai/gpt-oss-20b",
         max_attempts=MAX_ATTEMPTS,
         proxy: str = None,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str = "https://wikontic-vllm.tools.eurecom.fr/v1",
     ):
         if proxy:
             http_client = httpx.Client(proxy=proxy)
@@ -65,7 +67,7 @@ class LLMTripletExtractor:
         Args:
             prompt_folder_path: Path to folder containing prompt files
             system_prompt_paths: Dictionary mapping prompt types to file paths
-            model: Name of the OpenAI model to use
+            model: Name of the OpenAI-compatible model to use
         """
         if system_prompt_paths is None:
             system_prompt_paths = {
@@ -144,7 +146,7 @@ class LLMTripletExtractor:
     def get_completion(
         self, system_prompt: str, user_prompt: str, transform_to_json: bool = True
     ) -> Union[dict, list, str]:
-        """Get completion from OpenAI API with retry logic."""
+        """Get completion from OpenAI-compatible API with retry logic."""
         if self.model == "qwen/qwen3-32b" or self.model == "Qwen/Qwen3-32B":
             user_prompt = "/no_think \n" + user_prompt
         messages = [
@@ -192,7 +194,6 @@ class LLMTripletExtractor:
             )
         except Exception as e:
             self._prev_error = e
-            # if json from output is broken after 3 attempts  - raise an exception
             logger.log(logging.ERROR, str(e))
             if attempt > self.MAX_ATTEMPTS:
                 raise e
@@ -247,7 +248,6 @@ class LLMTripletExtractor:
         except Exception as e:
             self._prev_error = e
             logger.log(logging.ERROR, str(e))
-            # if json from output is broken after 3 attempts  - raise an exception
             if attempt > self.MAX_ATTEMPTS:
                 raise e
 
@@ -274,7 +274,6 @@ class LLMTripletExtractor:
         except Exception as e:
             self._prev_error = e
             logger.log(logging.ERROR, str(e))
-            # do not raise an exception - save triplet in ontology filtered collection
         return output
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(MAX_ATTEMPTS), reraise=True)
@@ -316,7 +315,6 @@ class LLMTripletExtractor:
         except Exception as e:
             self._prev_error = e
             logger.log(logging.ERROR, str(e))
-            # if json from output is broken after 3 attempts  - raise an exception
             if attempt > self.MAX_ATTEMPTS:
                 raise e
 
@@ -334,7 +332,6 @@ class LLMTripletExtractor:
         except Exception as e:
             self._prev_error = e
             logger.log(logging.ERROR, str(e))
-            # do not raise an exception - save triplet in ontology filtered collection
 
         return output
 
@@ -376,7 +373,6 @@ class LLMTripletExtractor:
         except Exception as e:
             self._prev_error = e
             logger.log(logging.ERROR, str(e))
-            # if json from output is broken after 3 attempts  - raise an exception
             if self._refine_attempt > self.MAX_ATTEMPTS:
                 raise e
 
@@ -436,7 +432,6 @@ class LLMTripletExtractor:
         except Exception as e:
             self._prev_error = e
             logger.log(logging.ERROR, str(e))
-            # if json from output is broken after 3 attempts  - raise an exception
             if attempt > self.MAX_ATTEMPTS:
                 raise e
 
@@ -479,7 +474,7 @@ class LLMTripletExtractor:
         """Collapse a question using knowledge graph triplets."""
         return self.get_completion(
             system_prompt=self.prompts["qa_collapsing"],
-            user_prompt=f"Original multi-hop question: {original_question}\n\Answered sub-question: {question}\n\Answer: {answer}",
+            user_prompt=f"Original multi-hop question: {original_question}\n\\Answered sub-question: {question}\n\\Answer: {answer}",
             transform_to_json=True,
         )
 
