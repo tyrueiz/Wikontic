@@ -48,6 +48,12 @@ The default MongoDB URI used by the MuSiQue scripts is:
 mongodb://localhost:27018/?directConnection=true
 ```
 
+If your local MongoDB or Docker container listens on the default MongoDB port instead, pass:
+
+```text
+mongodb://localhost:27017/?directConnection=true
+```
+
 ### 3. Model credentials
 
 `inference_and_eval/musique_inference.py` reads the API key from the environment variable configured in the YAML file. The default MuSiQue config uses:
