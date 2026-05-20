@@ -39,6 +39,7 @@ class LLMTripletExtractor:
         "qwen/qwen3-32b": {"input": 0.05, "output": 0.2},
         "Qwen/Qwen3-32B": {"input": 0.05, "output": 0.2},
         "openai/gpt-oss-20b": {"input": 0.05, "output": 0.2},
+        "openai/gpt-oss-120b": {"input": 0.05, "output": 0.2},
         "Openai/Gpt-oss-20b": {"input": 0.05, "output": 0.2},
         "Openai/Gpt-oss-120b": {"input": 0.05, "output": 0.2},
     }

@@ -81,6 +81,8 @@ def get_mongo_client(mongo_uri):
 def get_dataset(dataset_path):
     with open(dataset_path, "r") as f:
         ds = json.load(f)
+    if isinstance(ds, dict) and "data" in ds:
+        return ds["data"]
     return ds
 
 
@@ -160,6 +162,9 @@ if __name__ == "__main__":
     id2sample = {}
     for elem in ds:
         id2sample[elem["id"]] = elem
+        if "answerable" in elem:
+            answerable = "Answerable" if elem["answerable"] else "Unanswerable"
+            id2sample[f"{elem['id']}_{answerable}"] = elem
 
     if args.structured_inference:
         logger.info("Structured inference enabled")
@@ -190,6 +195,7 @@ if __name__ == "__main__":
     if args.multi_step_qa:
 
         for sample_id in tqdm(unique_sample_ids):
+            question = None
             try:
                 question = id2sample[sample_id]["question"]
                 ans = inference_with_db.answer_with_qa_collapsing(
@@ -224,11 +230,12 @@ if __name__ == "__main__":
                     normalize(id2sample[sample_id]["answer"]),
                 )
             except Exception as e:
-                logger.error(f"Error for sample_id={sample_id}, question={question}")
+                logger.error(f"Error for sample_id={sample_id}, question={question}: {e}")
                 continue
 
     else:
         for sample_id in tqdm(unique_sample_ids):
+            question = None
             try:
                 question = id2sample[sample_id]["question"]
                 identified_entities = (
