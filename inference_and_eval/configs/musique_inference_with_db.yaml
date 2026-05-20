@@ -4,5 +4,6 @@ ontology_db_name: "wikidata_ontology"
 triplets_db_name: "triplets_db"
 model_name: "gpt-4o-mini"
 dataset_path: "datasets/musique_200_test.json"
+start_index: 82
 num_samples: 50
 structured_inference: false

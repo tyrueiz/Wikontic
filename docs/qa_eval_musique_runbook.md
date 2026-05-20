@@ -81,6 +81,8 @@ datasets/musique_200_test.json
 - `.json`: one regular JSON dataset file
 - `.jsonl`: JSON Lines, where each line is one standalone JSON object
 
+For the bundled MuSiQue file, the loader reads the top-level `data` array.
+
 In this project, `.jsonl` output is mainly used for QA prediction logs. Each line stores one evaluated sample:
 
 ```json
@@ -104,20 +106,23 @@ ontology_db_name: "wikidata_ontology"
 triplets_db_name: "triplets_db"
 model_name: "gpt-4o-mini"
 dataset_path: "datasets/musique_200_test.json"
+start_index: 82
 num_samples: 50
 structured_inference: false
 ```
 
-Important MuSiQue slicing detail: the current script uses:
+Important MuSiQue slicing detail: the script starts from `start_index` and processes `num_samples` examples:
 
 ```python
-sampled_ids = list(id2sample.keys())[82 : cfg.num_samples]
+sampled_ids = list(id2sample.keys())[cfg.start_index : cfg.start_index + cfg.num_samples]
 ```
 
-So `num_samples` is an end index, not a count. For example:
+With the default config:
 
-- `num_samples: 84` processes 2 samples, indices 82 and 83.
-- `num_samples: 132` processes 50 samples, indices 82 through 131.
+- `start_index: 82`
+- `num_samples: 50`
+
+the script processes 50 samples, indices 82 through 131.
 
 ## Structured/Ontology Run
 
@@ -209,10 +214,10 @@ PYTHONPATH=/absolute/path/to/Wikontic/src python3 inference_and_eval/qa_eval_mus
 Before a long run, change the MuSiQue config to:
 
 ```yaml
-num_samples: 84
+num_samples: 2
 ```
 
-This processes two samples because the script starts from index 82.
+This processes two samples from the configured `start_index`.
 
 Build the graph:
 

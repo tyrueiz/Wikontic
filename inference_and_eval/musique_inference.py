@@ -50,6 +50,7 @@ CONFIG_DEFAULTS = {
     "triplets_db_name": "triplets_db",
     "model_name": "gpt-4o-mini",
     "dataset_path": "datasets/musique_200_test.json",
+    "start_index": 82,
     "num_samples": 50,
     "structured_inference": False,
     "proxy_env_var": None,
@@ -87,6 +88,8 @@ def get_mongo_client(mongo_uri):
 def get_json_dataset(dataset_path):
     with open(dataset_path, "r") as f:
         ds = json.load(f)
+    if isinstance(ds, dict) and "data" in ds:
+        return ds["data"]
     return ds
 
 
@@ -173,7 +176,9 @@ if __name__ == "__main__":
         )
 
     id2sample = convert_musique_dataset(ds)
-    sampled_ids = list(id2sample.keys())[82 : cfg.num_samples]
+    sampled_ids = list(id2sample.keys())[
+        cfg.start_index : cfg.start_index + cfg.num_samples
+    ]
 
     for i, sample_id in tqdm(enumerate(sampled_ids), total=len(sampled_ids)):
 
