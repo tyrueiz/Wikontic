@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, default="Openai/Gpt-oss-20b")
+    parser.add_argument("--model_name", type=str, default="Openai/Gpt-oss-120b")
     parser.add_argument("--num_samples", type=int, default=1000)
     return parser.parse_args()
 

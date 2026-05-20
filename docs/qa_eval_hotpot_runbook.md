@@ -238,7 +238,15 @@ At the end of the run, the script prints:
 
 "em": 0.28,
 
-"f1": 0.41
+"f1": 0.41,
+
+"prompt_tokens": 123456,
+
+"completion_tokens": 7890,
+
+"total_tokens": 131346,
+
+"estimated_cost": 0.007654
 
 }
 
@@ -257,6 +265,14 @@ Meaning:
 -  `em`: exact match after normalization
 
 -  `f1`: token-level F1 after normalization
+
+-  `prompt_tokens`: total prompt/input tokens used during evaluation
+
+-  `completion_tokens`: total completion/output tokens used during evaluation
+
+-  `total_tokens`: prompt plus completion tokens
+
+-  `estimated_cost`: estimated cost computed from the model price table in `openai_utils.py`
 
   
 

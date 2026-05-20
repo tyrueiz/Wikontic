@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional
+import json
 import logging
 
 logger = logging.getLogger("BaseInferenceWithDB")
@@ -16,6 +17,34 @@ class BaseInferenceWithDB:
         - self.aligner: The aligner instance
         - self.triplets_db: The triplets database instance
     """
+
+    def _coerce_text(self, value) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            for key in ["question", "answer", "entity", "text"]:
+                if key in value and isinstance(value[key], str):
+                    return value[key]
+            return json.dumps(value, ensure_ascii=False)
+        if isinstance(value, list):
+            return " ".join(self._coerce_text(item) for item in value)
+        return str(value)
+
+    def _coerce_entity_list(self, value) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, dict):
+            if "entity" in value:
+                return [self._coerce_text(value["entity"])]
+            return [self._coerce_text(value)]
+        if isinstance(value, list):
+            entities = []
+            for item in value:
+                entities.extend(self._coerce_entity_list(item))
+            return entities
+        return [str(value)]
 
     def retrieve_similar_entity_names(
         self, entity_name: str, k: int, sample_id: Optional[str] = None
@@ -36,6 +65,16 @@ class BaseInferenceWithDB:
         )
         if isinstance(similar_entity_names, dict):
             similar_entity_names = [e["entity"] for e in similar_entity_names]
+        elif isinstance(similar_entity_names, list):
+            normalized_entity_names = []
+            for item in similar_entity_names:
+                if isinstance(item, dict):
+                    normalized_entity_names.append(
+                        self._coerce_text(item.get("entity", item))
+                    )
+                else:
+                    normalized_entity_names.append(self._coerce_text(item))
+            similar_entity_names = normalized_entity_names
         return similar_entity_names
 
     def identify_relevant_entities_from_question_with_llm(
@@ -262,11 +301,13 @@ class BaseInferenceWithDB:
         collapsed_answer_sequence = []
 
         logger.log(logging.DEBUG, "Question: %s" % (str(question)))
-        collapsed_question = self.extractor.decompose_question(question)
+        collapsed_question = self._coerce_text(
+            self.extractor.decompose_question(question)
+        )
 
         for i in range(max_attempts):
-            extracted_entities = self.extractor.extract_entities_from_question(
-                collapsed_question
+            extracted_entities = self._coerce_entity_list(
+                self.extractor.extract_entities_from_question(collapsed_question)
             )
             logger.log(
                 logging.DEBUG, "Collapsed question: %s" % (str(collapsed_question))
@@ -297,8 +338,8 @@ class BaseInferenceWithDB:
                 "Supporting triplets length: %s" % (str(len(supporting_triplets))),
             )
 
-            collapsed_question_answer = self.extractor.answer_question(
-                collapsed_question, supporting_triplets
+            collapsed_question_answer = self._coerce_text(
+                self.extractor.answer_question(collapsed_question, supporting_triplets)
             )
             collapsed_question_sequence.append(collapsed_question)
             collapsed_answer_sequence.append(collapsed_question_answer)
@@ -311,18 +352,22 @@ class BaseInferenceWithDB:
                 "Collapsed question answer: %s" % (str(collapsed_question_answer)),
             )
 
-            is_answered = self.extractor.check_if_question_is_answered(
-                question, collapsed_question_sequence, collapsed_answer_sequence
+            is_answered = self._coerce_text(
+                self.extractor.check_if_question_is_answered(
+                    question, collapsed_question_sequence, collapsed_answer_sequence
+                )
             )
             question_answer_sequence = list(
                 zip(collapsed_question_sequence, collapsed_answer_sequence)
             )
 
             if is_answered == "NOT FINAL":
-                collapsed_question = self.extractor.collapse_question(
-                    original_question=question,
-                    question=collapsed_question,
-                    answer=collapsed_question_answer,
+                collapsed_question = self._coerce_text(
+                    self.extractor.collapse_question(
+                        original_question=question,
+                        question=collapsed_question,
+                        answer=collapsed_question_answer,
+                    )
                 )
                 continue
             else:

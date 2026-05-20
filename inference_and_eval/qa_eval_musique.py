@@ -81,8 +81,6 @@ def get_mongo_client(mongo_uri):
 def get_dataset(dataset_path):
     with open(dataset_path, "r") as f:
         ds = json.load(f)
-    if isinstance(ds, dict) and "data" in ds:
-        return ds["data"]
     return ds
 
 
@@ -95,7 +93,7 @@ def get_args():
     )
     parser.add_argument("--ontology_db_name", type=str, default="wikidata_ontology")
     parser.add_argument("--triplets_db_name", type=str, default="triplets_db")
-    parser.add_argument("--model_name", type=str, default="openai/gpt-oss-20b")
+    parser.add_argument("--model_name", type=str, default="openai/gpt-oss-120b")
     parser.add_argument(
         "--dataset_path", type=str, default="datasets/musique_200_test.json"
     )
@@ -162,9 +160,6 @@ if __name__ == "__main__":
     id2sample = {}
     for elem in ds:
         id2sample[elem["id"]] = elem
-        if "answerable" in elem:
-            answerable = "Answerable" if elem["answerable"] else "Unanswerable"
-            id2sample[f"{elem['id']}_{answerable}"] = elem
 
     if args.structured_inference:
         logger.info("Structured inference enabled")
@@ -195,7 +190,6 @@ if __name__ == "__main__":
     if args.multi_step_qa:
 
         for sample_id in tqdm(unique_sample_ids):
-            question = None
             try:
                 question = id2sample[sample_id]["question"]
                 ans = inference_with_db.answer_with_qa_collapsing(
@@ -230,12 +224,13 @@ if __name__ == "__main__":
                     normalize(id2sample[sample_id]["answer"]),
                 )
             except Exception as e:
-                logger.error(f"Error for sample_id={sample_id}, question={question}: {e}")
+                logger.error(
+                    f"Error for sample_id={sample_id}, question={question}: {e}"
+                )
                 continue
 
     else:
         for sample_id in tqdm(unique_sample_ids):
-            question = None
             try:
                 question = id2sample[sample_id]["question"]
                 identified_entities = (
@@ -287,7 +282,12 @@ if __name__ == "__main__":
                 )
                 continue
 
-    evaluated_sample_ids = [sample_id for sample_id in unique_sample_ids if sample_id in sample_id2ans]
+    prompt_tokens, completion_tokens = extractor.calculate_used_tokens()
+    total_tokens = prompt_tokens + completion_tokens
+
+    evaluated_sample_ids = [
+        sample_id for sample_id in unique_sample_ids if sample_id in sample_id2ans
+    ]
     if evaluated_sample_ids:
         em = sum(
             exact_match_score(sample_id2ans[sample_id], id2sample[sample_id]["answer"])
@@ -304,6 +304,10 @@ if __name__ == "__main__":
                     "requested_samples": len(unique_sample_ids),
                     "em": round(em, 4),
                     "f1": round(f1, 4),
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                    "estimated_cost": round(extractor.calculate_cost(), 6),
                 },
                 indent=2,
             )
@@ -316,6 +320,10 @@ if __name__ == "__main__":
                     "requested_samples": len(unique_sample_ids),
                     "em": 0.0,
                     "f1": 0.0,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                    "estimated_cost": round(extractor.calculate_cost(), 6),
                 },
                 indent=2,
             )
