@@ -20,12 +20,6 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-The evaluation script imports `jsonlines`. If it is missing in your environment, install it explicitly:
-
-```bash
-pip install jsonlines
-```
-
 Use the local source tree:
 
 ```bash
@@ -48,11 +42,6 @@ The default MongoDB URI used by the MuSiQue scripts is:
 mongodb://localhost:27018/?directConnection=true
 ```
 
-If your local MongoDB or Docker container listens on the default MongoDB port instead, pass:
-
-```text
-mongodb://localhost:27017/?directConnection=true
-```
 
 ### 3. Model credentials
 
@@ -97,64 +86,39 @@ In this project, `.jsonl` output is mainly used for QA prediction logs. Each lin
 
 ## Build The MuSiQue Graph
 
-Use the MuSiQue config file explicitly. The script's fallback config path does not point to the current `configs/` directory.
+Use the MuSiQue config file explicitly.
 
 ```bash
-PYTHONPATH=/absolute/path/to/Wikontic/src python3 inference_and_eval/musique_inference.py \
-  --config inference_and_eval/configs/musique_inference_with_db.yaml
+CUDA_VISIBLE_DEVICES=1 \
+OPENAI_API_KEY=fake \
+WIKONTIC_BASE_URL=https://wikontic-vllm.tools.eurecom.fr/v1 \
+PYTHONPATH=/absolute/path/to/Wikontic/src \
+/absolute/path/to/Wikontic/.venv/bin/python inference_and_eval/musique_inference.py \
+  --config inference_and_eval/configs/musique_gpt_oss_120b_1000_structured.yaml
 ```
 
-Default config:
+The working structured config used for the reported run was:
 
 ```yaml
 mongo_uri: "mongodb://localhost:27018/?directConnection=true"
 ontology_db_name: "wikidata_ontology"
-triplets_db_name: "triplets_db"
-model_name: "gpt-4o-mini"
-dataset_path: "datasets/musique_200_test.json"
-start_index: 82
-num_samples: 50
-structured_inference: false
-```
-
-Important MuSiQue slicing detail: the script starts from `start_index` and processes `num_samples` examples:
-
-```python
-sampled_ids = list(id2sample.keys())[cfg.start_index : cfg.start_index + cfg.num_samples]
-```
-
-With the default config:
-
-- `start_index: 82`
-- `num_samples: 50`
-
-the script processes 50 samples, indices 82 through 131.
-
-## Structured/Ontology Run
-
-To follow the ontology-aware path described in the paper, set this in the YAML config:
-
-```yaml
+triplets_db_name: "musique_1000"
+model_name: "openai/gpt-oss-120b"
+dataset_path: "datasets/musique.json"
+num_samples: 1000
 structured_inference: true
-```
-
-Then run:
-
-```bash
-PYTHONPATH=/absolute/path/to/Wikontic/src python3 inference_and_eval/musique_inference.py \
-  --config inference_and_eval/configs/musique_inference_with_db.yaml
 ```
 
 The graph database name is created from the base database name, model name, and inference mode:
 
 ```text
-triplets_db_<model_name>_onto
+<triplets_db_name>_<model_name>_onto
 ```
 
-For example, with `model_name: gpt-4o-mini`:
+For the run above, this became:
 
 ```text
-triplets_db_gpt-4o-mini_onto
+musique_1000_openai_gpt-oss-120b_onto
 ```
 
 ## Non-Ontology Run
@@ -204,15 +168,31 @@ PYTHONPATH=/absolute/path/to/Wikontic/src python3 inference_and_eval/qa_eval_mus
 ### Structured + multi-step example
 
 ```bash
-PYTHONPATH=/absolute/path/to/Wikontic/src python3 inference_and_eval/qa_eval_musique.py \
+CUDA_VISIBLE_DEVICES=1 \
+OPENAI_API_KEY=fake \
+PYTHONPATH=/absolute/path/to/Wikontic/src \
+/absolute/path/to/Wikontic/.venv/bin/python inference_and_eval/qa_eval_musique.py \
   --mongo_uri "mongodb://localhost:27018/?directConnection=true" \
   --ontology_db_name wikidata_ontology \
-  --triplets_db_name triplets_db_gpt-4o-mini_onto \
-  --model_name gpt-4o-mini \
-  --dataset_path datasets/musique_200_test.json \
+  --triplets_db_name "musique_1000_openai_gpt-oss-120b_onto" \
+  --model_name openai/gpt-oss-120b \
+  --dataset_path datasets/musique.json \
   --structured_inference \
   --multi-step-qa \
   --run_number 1
+```
+
+### Reported final scores
+
+For the structured + multi-step run above, the reported output was:
+
+```json
+{
+  "evaluated_samples": 1000,
+  "requested_samples": 1000,
+  "em": 0.251,
+  "f1": 0.3638
+}
 ```
 
 ## Fast Sanity Check
