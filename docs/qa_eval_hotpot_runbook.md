@@ -1,291 +1,170 @@
-
 # `qa_eval_hotpot` Runbook
-
-  
 
 ## Prerequisites
 
-  
-
-### 1. Python environment
-
-  
-
-Run commands from the Wikontic repo root:
-
-  
+Run commands from the repo root:
 
 ```bash
-
-cd  Wikontic
-
+cd /absolute/path/to/Wikontic
 ```
 
-  
-
-Install dependencies before running anything:
-
-  
+Install dependencies:
 
 ```bash
-
-pip  install  -r  requirements.txt
-
+pip install -r requirements.txt
 ```
 
-  
-
-Use the local source tree with:
-
-  
+Use the local source tree:
 
 ```bash
-
-PYTHONPATH=/absolute/path/to/Wikontic/src
-
+export PYTHONPATH=/absolute/path/to/Wikontic/src
 ```
-
-  
-
-Replace `/absolute/path/to/Wikontic` with the actual absolute path to your local Wikontic repository.
-
-  
 
 Example:
 
-  
-
 ```bash
-
-PYTHONPATH=/home/mplgg/Wikontic_fork/Wikontic/src
-
+export PYTHONPATH=/home/mplgg/Wikontic_fork/Wikontic/src
 ```
 
-  
-
-### 2. MongoDB
-
-  
-
-Start MongoDB with:
-
-  
+Start MongoDB:
 
 ```bash
-
 ./setup_db.sh
-
 ```
-
-
-  
 
 ## Structured + multi-step
 
-  
-
 ### 1. Build the graph
 
-  
-
 ```bash
-
-PYTHONPATH=/absolute/path/to/Wikontic/src  python3  inference_and_eval/hotpot_inference_with_db.py  
-
---mongo_uri  "mongodb://localhost:27018/?directConnection=true"  
-
---ontology_db_name  wikidata_ontology  
-
---triplets_db_name triplets_db  
-
---model_name  openai/gpt-oss-120b  
-
---dataset_path  datasets/hotpotqa200.json  
-
---num_samples  50
-
---structured_inference
-
+CUDA_VISIBLE_DEVICES=1 \
+OPENAI_API_KEY=fake \
+WIKONTIC_BASE_URL=https://wikontic-vllm.tools.eurecom.fr/v1 \
+PYTHONPATH=/absolute/path/to/Wikontic/src \
+/absolute/path/to/Wikontic/.venv/bin/python inference_and_eval/hotpot_inference_with_db.py \
+  --mongo_uri "mongodb://localhost:27018/?directConnection=true" \
+  --ontology_db_name wikidata_ontology \
+  --triplets_db_name hotpotqa \
+  --model_name openai/gpt-oss-120b \
+  --dataset_path datasets/hotpotqa.json \
+  --num_samples 1000 \
+  --structured_inference
 ```
-
-  
 
 ### 2. Run QA evaluation
 
-  
-
 ```bash
-
-PYTHONPATH=/absolute/path/to/Wikontic/src  python3  inference_and_eval/qa_eval_hotpot.py  
-
---structured_inference  
-
---multi-step-qa  
-
+CUDA_VISIBLE_DEVICES=1 \
+OPENAI_API_KEY=fake \
+PYTHONPATH=/absolute/path/to/Wikontic/src \
+/absolute/path/to/Wikontic/.venv/bin/python inference_and_eval/qa_eval_hotpot.py \
+  --mongo_uri "mongodb://localhost:27018/?directConnection=true" \
+  --ontology_db_name wikidata_ontology \
+  --triplets_db_name hotpotqa \
+  --model_name openai/gpt-oss-120b \
+  --dataset_path datasets/hotpotqa.json \
+  --structured_inference \
+  --multi-step-qa
 ```
 
+This is the safest pattern: pass all relevant parameters explicitly instead of relying on defaults.
 
+### Reported final scores
 
+For the full structured + multi-step run above, the reported output was:
+
+```json
+{
+  "evaluated_samples": 1000,
+  "requested_samples": 1000,
+  "em": 0.515,
+  "f1": 0.649,
+  "prompt_tokens": 5684130,
+  "completion_tokens": 1713206,
+  "total_tokens": 7397336,
+  "estimated_cost": 0.626848
+}
+```
 
 ## Fast sanity-check run
 
-  
+Before a long run, test with a small sample count.
 
-Before a long run, test with a small sample count:
-
-  
 ### 1. Build the graph
 
-  
-
 ```bash
-
-PYTHONPATH=/absolute/path/to/Wikontic/src  python3  inference_and_eval/hotpot_inference_with_db.py  
-
---mongo_uri  "mongodb://localhost:27018/?directConnection=true"  
-
---ontology_db_name  wikidata_ontology  
-
---triplets_db_name triplets_db  
-
---model_name  openai/gpt-oss-120b  
-
---dataset_path  datasets/hotpotqa200.json  
-
---num_samples  2
-
---structured_inference
-
+PYTHONPATH=/absolute/path/to/Wikontic/src \
+python3 inference_and_eval/hotpot_inference_with_db.py \
+  --mongo_uri "mongodb://localhost:27018/?directConnection=true" \
+  --ontology_db_name wikidata_ontology \
+  --triplets_db_name hotpotqa_sanity \
+  --model_name openai/gpt-oss-120b \
+  --dataset_path datasets/hotpotqa200.json \
+  --num_samples 2 \
+  --structured_inference
 ```
-
-  
 
 ### 2. Run QA evaluation
 
-  
-
 ```bash
-
-PYTHONPATH=/absolute/path/to/Wikontic/src  python3  inference_and_eval/qa_eval_hotpot.py  \
-
---no_structured_inference  
-
---no_multi-step-qa  
-
+PYTHONPATH=/absolute/path/to/Wikontic/src \
+python3 inference_and_eval/qa_eval_hotpot.py \
+  --mongo_uri "mongodb://localhost:27018/?directConnection=true" \
+  --ontology_db_name wikidata_ontology \
+  --triplets_db_name hotpotqa_sanity \
+  --model_name openai/gpt-oss-120b \
+  --dataset_path datasets/hotpotqa200.json \
+  --structured_inference \
+  --multi-step-qa
 ```
-
-  
 
 ## Where the results go
 
-  
-
 ### 1. Prediction logs
-
-  
 
 The script writes answers to:
 
-  
-
 ```text
-
 qa_logs/
-
 ```
-
-  
 
 Example filename:
 
-  
-
 ```text
-
-qa_logs/triplets_db_hotpot_basic_openai_gpt-oss-120b_structured_False_multi_step_False_use_qualifiers_True_use_filtered_triplets_False_hotpot_test_run_1.jsonl
-
+qa_logs/hotpotqa_openai_gpt-oss-120b_structured_True_multi_step_True_use_qualifiers_True_use_filtered_triplets_False_hotpot_test_run_1.jsonl
 ```
-
-  
 
 Each line looks like:
 
-  
-
 ```json
-
 {"sample_id": "5a7180205542994082a3e856", "answer": "Creature Comforts"}
-
 ```
-
-  
 
 ### 2. Final metrics
 
-  
-
-At the end of the run, the script prints:
-
-  
+At the end of the run, the script prints something like:
 
 ```json
-
 {
-
-"evaluated_samples": 50,
-
-"requested_samples": 50,
-
-"em": 0.28,
-
-"f1": 0.41,
-
-"prompt_tokens": 123456,
-
-"completion_tokens": 7890,
-
-"total_tokens": 131346,
-
-"estimated_cost": 0.007654
-
+  "evaluated_samples": 50,
+  "requested_samples": 50,
+  "em": 0.28,
+  "f1": 0.41,
+  "prompt_tokens": 123456,
+  "completion_tokens": 7890,
+  "total_tokens": 131346,
+  "estimated_cost": 0.007654
 }
-
 ```
-
-  
 
 Meaning:
 
-  
+- `evaluated_samples`: predictions that were actually produced
+- `requested_samples`: sample IDs found in Mongo
+- `em`: exact match
+- `f1`: token-level F1
+- `prompt_tokens`: input tokens used
+- `completion_tokens`: output tokens used
+- `total_tokens`: total token usage
+- `estimated_cost`: cost estimate from the model price table
 
--  `evaluated_samples`: number of questions that produced an answer
-
--  `requested_samples`: number of sample IDs found in MongoDB
-
--  `em`: exact match after normalization
-
--  `f1`: token-level F1 after normalization
-
--  `prompt_tokens`: total prompt/input tokens used during evaluation
-
--  `completion_tokens`: total completion/output tokens used during evaluation
-
--  `total_tokens`: prompt plus completion tokens
-
--  `estimated_cost`: estimated cost computed from the model price table in `openai_utils.py`
-
-  
-
-## Files involved
-
-  
-
--  `inference_and_eval/hotpot_inference_with_db.py`
-
--  `inference_and_eval/qa_eval_hotpot.py`
-
--  `datasets/hotpotqa200.json`
-
--  `src/wikontic/utils/openai_utils.py`
-
--  `qa_logs/`
