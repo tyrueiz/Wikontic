@@ -17,3 +17,4 @@ accelerate
 langchain_openai
 langchain
 jsonlines
+rdflib
