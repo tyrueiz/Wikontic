@@ -78,6 +78,24 @@ Knowledge Graphs (KGs) provide structured, verifiable representations of knowled
    streamlit run Wikontic.py
    ```
 
+## 📚 Runbooks
+
+Detailed command-line runbooks live in [`docs/`](/home/mplgg/Wikontic_fork/Wikontic/docs):
+
+- [Hotpot QA runbook](/home/mplgg/Wikontic_fork/Wikontic/docs/qa_eval_hotpot_runbook.md)  
+  Exact commands for building the Hotpot graph, running QA evaluation, and interpreting EM/F1 and token usage.
+
+- [MuSiQue QA runbook](/home/mplgg/Wikontic_fork/Wikontic/docs/qa_eval_musique_runbook.md)  
+  Commands for MuSiQue graph construction and QA evaluation, including the working `gpt-oss-120b` setup.
+
+- [DOREMUS runbook](/home/mplgg/Wikontic_fork/Wikontic/docs/doremus_runbook.md)  
+  End-to-end setup for running Wikontic with the DOREMUS ontology and Streamlit app.
+
+- [DOREMUS Streamlit changes](/home/mplgg/Wikontic_fork/Wikontic/docs/doremus_streamlit_changes.md)  
+  Summary of the code changes that were made to support the DOREMUS + Streamlit path.
+
+If you are working with the default Wikidata setup, start with `setup_db.sh` and the Hotpot/MuSiQue runbooks. If you are working with DOREMUS, start with `setup_doremus.sh` and the DOREMUS runbook.
+
 ---
 
 Enjoy building knowledge graphs with Wikontic!
