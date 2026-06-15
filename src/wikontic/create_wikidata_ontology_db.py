@@ -95,6 +95,37 @@ def get_mongo_client(mongo_uri):
     return client
 
 
+def load_mapping_file(mappings_dir, filename):
+    path = os.path.join(mappings_dir, filename)
+    if not os.path.exists(path):
+        return None
+    with open(path, "r") as f:
+        return json.load(f)
+
+
+def build_constraint_indexes(prop_to_constraint):
+    subj2prop_constraints = {"<ANY SUBJECT>": []}
+    obj2prop_constraints = {"<ANY OBJECT>": []}
+
+    for prop_id, constraints in prop_to_constraint.items():
+        subject_constraints = constraints.get("Subject type constraint", ["ANY"])
+        value_constraints = constraints.get("Value-type constraint", ["ANY"])
+
+        if not subject_constraints or subject_constraints == ["ANY"]:
+            subj2prop_constraints["<ANY SUBJECT>"].append(prop_id)
+        else:
+            for entity_id in subject_constraints:
+                subj2prop_constraints.setdefault(entity_id, []).append(prop_id)
+
+        if not value_constraints or value_constraints == ["ANY"]:
+            obj2prop_constraints["<ANY OBJECT>"].append(prop_id)
+        else:
+            for entity_id in value_constraints:
+                obj2prop_constraints.setdefault(entity_id, []).append(prop_id)
+
+    return subj2prop_constraints, obj2prop_constraints
+
+
 def populate_entity_types(
     ENTITY_2_LABEL,
     ENTITY_2_HIERARCHY,
@@ -402,30 +433,71 @@ def create_wikidata_ontology_database(
     logger.info(f"Using database: {database}")
     logger.info(f"Loading mapping files from: {mappings_dir}")
 
-    # Load mapping files
-    with open(os.path.join(mappings_dir, "subj_constraint2prop.json"), "r") as f:
-        subj2prop_constraints = json.load(f)
+    # Load required mapping files
+    ENTITY_2_LABEL = load_mapping_file(mappings_dir, "entity_type2label.json")
+    ENTITY_2_HIERARCHY = load_mapping_file(mappings_dir, "entity_type2hierarchy.json")
+    PROP_2_LABEL = load_mapping_file(mappings_dir, "prop2label.json")
 
-    with open(os.path.join(mappings_dir, "obj_constraint2prop.json"), "r") as f:
-        obj2prop_constraints = json.load(f)
+    if ENTITY_2_LABEL is None:
+        raise FileNotFoundError(
+            os.path.join(mappings_dir, "entity_type2label.json")
+        )
+    if ENTITY_2_HIERARCHY is None:
+        raise FileNotFoundError(
+            os.path.join(mappings_dir, "entity_type2hierarchy.json")
+        )
+    if PROP_2_LABEL is None:
+        raise FileNotFoundError(os.path.join(mappings_dir, "prop2label.json"))
 
-    with open(os.path.join(mappings_dir, "entity_type2label.json"), "r") as f:
-        ENTITY_2_LABEL = json.load(f)
+    # Load optional mapping files. If they are absent, synthesize minimal defaults.
+    subj2prop_constraints = load_mapping_file(mappings_dir, "subj_constraint2prop.json")
+    obj2prop_constraints = load_mapping_file(mappings_dir, "obj_constraint2prop.json")
+    ENTITY_2_ALIASES = load_mapping_file(mappings_dir, "entity_type2aliases.json")
+    PROP_2_CONSTRAINT = load_mapping_file(mappings_dir, "prop2constraints.json")
+    PROP_2_ALIASES = load_mapping_file(mappings_dir, "prop2aliases.json")
 
-    with open(os.path.join(mappings_dir, "entity_type2hierarchy.json"), "r") as f:
-        ENTITY_2_HIERARCHY = json.load(f)
+    if ENTITY_2_ALIASES is None:
+        logger.warning(
+            "entity_type2aliases.json not found; using empty alias lists for entity types"
+        )
+        ENTITY_2_ALIASES = {entity_id: [] for entity_id in ENTITY_2_LABEL}
 
-    with open(os.path.join(mappings_dir, "entity_type2aliases.json"), "r") as f:
-        ENTITY_2_ALIASES = json.load(f)
+    if PROP_2_ALIASES is None:
+        logger.warning(
+            "prop2aliases.json not found; using empty alias lists for properties"
+        )
+        PROP_2_ALIASES = {prop_id: [] for prop_id in PROP_2_LABEL}
 
-    with open(os.path.join(mappings_dir, "prop2constraints.json"), "r") as f:
-        PROP_2_CONSTRAINT = json.load(f)
+    if PROP_2_CONSTRAINT is None:
+        logger.warning(
+            "prop2constraints.json not found; using ANY subject/object constraints for all properties"
+        )
+        PROP_2_CONSTRAINT = {
+            prop_id: {
+                "Subject type constraint": ["ANY"],
+                "Value-type constraint": ["ANY"],
+            }
+            for prop_id in PROP_2_LABEL
+        }
 
-    with open(os.path.join(mappings_dir, "prop2label.json"), "r") as f:
-        PROP_2_LABEL = json.load(f)
+    derived_subj2prop_constraints = None
+    derived_obj2prop_constraints = None
+    if subj2prop_constraints is None or obj2prop_constraints is None:
+        derived_subj2prop_constraints, derived_obj2prop_constraints = (
+            build_constraint_indexes(PROP_2_CONSTRAINT)
+        )
 
-    with open(os.path.join(mappings_dir, "prop2aliases.json"), "r") as f:
-        PROP_2_ALIASES = json.load(f)
+    if subj2prop_constraints is None:
+        logger.warning(
+            "subj_constraint2prop.json not found; deriving subject constraint index from prop2constraints.json"
+        )
+        subj2prop_constraints = derived_subj2prop_constraints
+
+    if obj2prop_constraints is None:
+        logger.warning(
+            "obj_constraint2prop.json not found; deriving object constraint index from prop2constraints.json"
+        )
+        obj2prop_constraints = derived_obj2prop_constraints
 
     logger.info("Successfully loaded all mapping files")
 

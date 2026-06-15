@@ -32,12 +32,24 @@ st.set_page_config(
     page_title="Wikontic", page_icon="media/wikotic-wo-text.png", layout="wide"
 )
 
-WIKIDATA_ONTOLOGY_DB_NAME = "wikidata_ontology"
-TRIPLETS_DB_NAME = "demo"
+MONGO_URI = os.getenv(
+    "MONGO_URI", "mongodb://localhost:27018/?directConnection=true"
+)
+WIKIDATA_ONTOLOGY_DB_NAME = os.getenv("ONTOLOGY_DB_NAME", "wikidata_ontology")
+TRIPLETS_DB_NAME = os.getenv("TRIPLETS_DB_NAME", "demo")
+DEFAULT_APP_MODEL = os.getenv("DEFAULT_APP_MODEL", "openai/gpt-oss-120b")
+MODEL_OPTIONS = [
+    model.strip()
+    for model in os.getenv(
+        "APP_MODEL_OPTIONS",
+        "openai/gpt-oss-120b,openai/gpt-oss-20b,gpt-4o-mini",
+    ).split(",")
+    if model.strip()
+]
 # --- Mongo Setup ---
 _ = load_dotenv(find_dotenv())
-mongo_client = MongoClient(os.getenv("MONGO_URI"))
-api_key = os.getenv("KEY")
+mongo_client = MongoClient(MONGO_URI)
+api_key = os.getenv("KEY") or os.getenv("OPENAI_API_KEY")
 proxy_url = os.getenv("PROXY_URL")
 ontology_db = mongo_client.get_database(WIKIDATA_ONTOLOGY_DB_NAME)
 triplets_db = mongo_client.get_database(TRIPLETS_DB_NAME)
@@ -131,9 +143,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-model_options = ["gpt-4.1", "gpt-4o-mini", "gpt-4.1-mini"]
+model_options = MODEL_OPTIONS
 selected_model = st.selectbox(
-    "Choose a model for KG extraction:", model_options, index=0
+    "Choose a model for KG extraction:",
+    model_options,
+    index=model_options.index(DEFAULT_APP_MODEL)
+    if DEFAULT_APP_MODEL in model_options
+    else 0,
 )
 
 # Predefined Wikipedia texts
@@ -223,21 +239,30 @@ if trigger:
         ) = inference_with_db.extract_triplets_with_ontology_filtering_and_add_to_db(
             text=input_text, sample_id=user_id, source_text_id=None
         )
-        logger.info("Initial triplets: ", initial_triplets)
+        logger.info(f"Initial triplets: {initial_triplets}")
         logger.info("-" * 100)
-        logger.info("Refined triplets: ", final_triplets)
+        logger.info(f"Refined triplets: {final_triplets}")
         logger.info("-" * 100)
-        logger.info("filtered_triplets: ", filtered_triplets)
+        logger.info(f"filtered_triplets: {filtered_triplets}")
         logger.info("-" * 100)
-        logger.info("ontology_filtered_triplets: ", ontology_filtered_triplets)
+        logger.info(f"ontology_filtered_triplets: {ontology_filtered_triplets}")
         logger.info("-" * 100)
         new_entities = {t["subject"] for t in final_triplets} | {
             t["object"] for t in final_triplets
         }
         subgraph = fetch_related_triplets(list(new_entities))
-        st.success(
-            f"✅ Extracted {len(final_triplets)} triplets and visualized {len(subgraph)} related ones."
-        )
+
+        if final_triplets:
+            st.success(
+                f"✅ Extracted {len(final_triplets)} triplets and visualized {len(subgraph)} related ones."
+            )
+        elif ontology_filtered_triplets:
+            st.warning(
+                "Triplets were extracted, but all of them were filtered out by the current ontology. "
+                "This usually means the input text does not match the ontology domain closely enough."
+            )
+        else:
+            st.warning("No final triplets were produced from the current input.")
 
         col1, col2 = st.columns(2)
 

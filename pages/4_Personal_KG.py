@@ -24,12 +24,25 @@ st.set_page_config(
     page_title="Wikontic", page_icon="media/wikotic-wo-text.png", layout="wide"
 )
 
-WIKIDATA_ONTOLOGY_DB_NAME = "wikidata_ontology"
-TRIPLETS_DB_NAME = "demo"
+MONGO_URI = os.getenv(
+    "MONGO_URI", "mongodb://localhost:27018/?directConnection=true"
+)
+WIKIDATA_ONTOLOGY_DB_NAME = os.getenv("ONTOLOGY_DB_NAME", "wikidata_ontology")
+TRIPLETS_DB_NAME = os.getenv("TRIPLETS_DB_NAME", "demo")
+DEFAULT_APP_MODEL = os.getenv("DEFAULT_APP_MODEL", "openai/gpt-oss-120b")
+MODEL_OPTIONS = [
+    model.strip()
+    for model in os.getenv(
+        "APP_MODEL_OPTIONS",
+        "openai/gpt-oss-120b,openai/gpt-oss-20b,gpt-4o-mini",
+    ).split(",")
+    if model.strip()
+]
+WEB_SEARCH_MODEL = os.getenv("WEB_SEARCH_MODEL", "gpt-4o-mini")
 # --- Mongo Setup ---
 _ = load_dotenv(find_dotenv())
-mongo_client = MongoClient(os.getenv("MONGO_URI"))
-api_key = os.getenv("KEY")
+mongo_client = MongoClient(MONGO_URI)
+api_key = os.getenv("KEY") or os.getenv("OPENAI_API_KEY")
 proxy_url = os.getenv("PROXY_URL")
 ontology_db = mongo_client.get_database(WIKIDATA_ONTOLOGY_DB_NAME)
 triplets_db = mongo_client.get_database(TRIPLETS_DB_NAME)
@@ -98,9 +111,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-model_options = ["gpt-4.1", "gpt-4o-mini", "gpt-4.1-mini"]
+model_options = MODEL_OPTIONS
 selected_model = st.selectbox(
-    "Choose a model for KG extraction:", model_options, index=0
+    "Choose a model for KG extraction:",
+    model_options,
+    index=model_options.index(DEFAULT_APP_MODEL)
+    if DEFAULT_APP_MODEL in model_options
+    else 0,
 )
 
 
@@ -129,8 +146,13 @@ if trigger:
         extractor = LLMTripletExtractor(
             model=selected_model, api_key=api_key, proxy=proxy_url
         )
+        if not api_key or api_key == "fake":
+            st.warning(
+                "Personal KG uses OpenAI web search to gather source text. Set a real OPENAI_API_KEY and optionally WEB_SEARCH_MODEL to use this page."
+            )
+            st.stop()
         response = extractor.client.responses.create(
-            model="gpt-4.1",
+            model=WEB_SEARCH_MODEL,
             tools=[{"type": "web_search"}],
             input=f"Search recent and relevant info about {input_text} in the internet and return a paragraph that summarizes the info on the person. Return only the paragraph, no other text.",
         )

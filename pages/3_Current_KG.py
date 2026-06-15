@@ -34,10 +34,15 @@ st.set_page_config(
     page_title="Wikontic", page_icon="media/wikotic-wo-text.png", layout="wide"
 )
 
+MONGO_URI = os.getenv(
+    "MONGO_URI", "mongodb://localhost:27018/?directConnection=true"
+)
+TRIPLETS_DB_NAME = os.getenv("TRIPLETS_DB_NAME", "demo")
+
 # --- Mongo Setup ---
 _ = load_dotenv(find_dotenv())
-mongo_client = MongoClient(os.getenv("MONGO_URI"))
-triplets_db = mongo_client.get_database("demo")
+mongo_client = MongoClient(MONGO_URI)
+triplets_db = mongo_client.get_database(TRIPLETS_DB_NAME)
 
 
 def fetch_triplets():

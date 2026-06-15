@@ -194,10 +194,18 @@ if __name__ == "__main__":
         logger.info(f"Disabled multi-step QA")
 
     sample_id2ans = {}
+    missing_sample_ids = []
     if args.multi_step_qa:
 
         for sample_id in tqdm(unique_sample_ids):
+            question = None
             try:
+                if sample_id not in id2sample:
+                    missing_sample_ids.append(sample_id)
+                    logger.error(
+                        f"Sample id {sample_id} was found in triplets DB but not in dataset {dataset_path}"
+                    )
+                    continue
                 question = id2sample[sample_id]["question"]
                 ans = inference_with_db.answer_with_qa_collapsing(
                     question,
@@ -235,7 +243,14 @@ if __name__ == "__main__":
 
     else:
         for sample_id in tqdm(unique_sample_ids):
+            question = None
             try:
+                if sample_id not in id2sample:
+                    missing_sample_ids.append(sample_id)
+                    logger.error(
+                        f"Sample id {sample_id} was found in triplets DB but not in dataset {dataset_path}"
+                    )
+                    continue
                 question = id2sample[sample_id]["question"]
                 identified_entities = (
                     inference_with_db.identify_relevant_entities_from_question_with_llm(
@@ -317,13 +332,18 @@ if __name__ == "__main__":
                 {
                     "evaluated_samples": 0,
                     "requested_samples": len(unique_sample_ids),
+                    "missing_dataset_samples": len(missing_sample_ids),
                     "em": 0.0,
                     "f1": 0.0,
                     "prompt_tokens": prompt_tokens,
                     "completion_tokens": completion_tokens,
-                    "total_tokens": total_tokens,
-                    "estimated_cost": round(extractor.calculate_cost(), 6),
+                    "total_tokens": total_tokens, 
                 },
                 indent=2,
             )
+        )
+
+    if missing_sample_ids:
+        logger.error(
+            f"Skipped {len(missing_sample_ids)} sample ids because they were missing from {dataset_path}"
         )
