@@ -148,6 +148,13 @@ Use something music-domain and relation-heavy:
 Claude Debussy composed La Mer in 1905. La Mer is an orchestral work in three movements. It was premiered in Paris. Debussy was born in Saint-Germain-en-Laye in 1862 and died in Paris in 1918.
 ```
 
+What is above unfortunately leads to broken KGs, you should use something very specific like 
+
+
+```text
+La Mer has genre orchestral music, has form symphonic poem, has key D major, has tempo moderate, and estimated duration twenty-five minutes
+```
+
 ## 5. Can this work for another KG?
 
 Yes, but only if the other KG can be converted into the mapping format the code now understands.
