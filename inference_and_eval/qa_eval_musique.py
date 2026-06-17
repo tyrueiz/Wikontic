@@ -287,6 +287,9 @@ if __name__ == "__main__":
                 )
                 continue
 
+    prompt_tokens, completion_tokens = extractor.calculate_used_tokens()
+    total_tokens = prompt_tokens + completion_tokens
+
     evaluated_sample_ids = [sample_id for sample_id in unique_sample_ids if sample_id in sample_id2ans]
     if evaluated_sample_ids:
         em = sum(
@@ -304,6 +307,9 @@ if __name__ == "__main__":
                     "requested_samples": len(unique_sample_ids),
                     "em": round(em, 4),
                     "f1": round(f1, 4),
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
                 },
                 indent=2,
             )
@@ -316,6 +322,9 @@ if __name__ == "__main__":
                     "requested_samples": len(unique_sample_ids),
                     "em": 0.0,
                     "f1": 0.0,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
                 },
                 indent=2,
             )
